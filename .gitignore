@@ -1,0 +1,24 @@
+.vs
+
+# Virtual environment
+.venv/Lib
+.venv/Scripts
+.venv/Share
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Python bytecode files
+*.pyc
+*.pyo
+__pycache__/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# System files
+.DS_Store
+Thumbs.db
