@@ -22,4 +22,3 @@ for row in results:
 # Zamknięcie połączenia
 conn.close()
 
-# db_test

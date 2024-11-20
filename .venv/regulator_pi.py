@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 # Parametry piekarnika
 T_ambient = 20.0  # temperatura otoczenia w stopniach Celsjusza
 thermal_mass = 100.0  # bezwładność cieplna piekarnika
-efficiency = 1.5  # efektywność grzałki
+efficiency = 0.9  # efektywność grzałki
 
 # Parametry regulatora PI
 K_p = 2.0  # wzmocnienie proporcjonalne
@@ -11,13 +11,13 @@ K_i = 0.1  # wzmocnienie całkujące
 
 # Parametry symulacji
 setpoint = 180.0  # temperatura zadana w stopniach Celsjusza
-T_current = T_ambient  # początkowa temperatura piekarnika
+T_current = T_ambient  # początkowa temperatura piekarnika - temperatura otoczenia
 heating_power = 0.0  # początkowa moc grzania
-h_Min = T_ambient
-h_Max = 400
+h_Min = T_ambient  # minimalna temperatura grzałki - temp otoczenia
+h_Max = 400  # maksymalna temperatura grzałki
 integral_error = 0.0  # początkowy błąd całkowy
 time_step = 1  # krok czasowy w sekundach
-simulation_time = 1000  # całkowity czas symulacji w sekundach
+simulation_time = 200  # całkowity czas symulacji w sekundach
 
 # Zapis wyników do wykresu
 time_history = []
@@ -38,8 +38,8 @@ for t in range(simulation_time):
                         )  # Ogranicz moc grzania do 0-100%
 
     # Aktualizacja temperatury piekarnika
-    T_current += (min(max(heating_power * h_Max, h_Min), h_Max) * efficiency -
-                  (T_current - T_ambient)) / thermal_mass * time_step
+    T_current += (min(max(heating_power * h_Max, h_Min), h_Max) *
+                  efficiency - (T_current - T_ambient)) / thermal_mass * time_step
 
     # Zapis wyników do analizy
     time_history.append(t)
