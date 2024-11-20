@@ -8,7 +8,8 @@ conn = sqlite3.connect("PID_simulation.db")
 cursor = conn.cursor()
 
 # Zapytanie SELECT
-query = "SELECT * FROM simulation_data;"  # Zmień "nazwa_tabeli" na rzeczywistą nazwę tabeli
+# Zmień "nazwa_tabeli" na rzeczywistą nazwę tabeli
+query = "SELECT * FROM simulation_data;"
 cursor.execute(query)
 
 # Pobranie wszystkich wyników
@@ -20,3 +21,5 @@ for row in results:
 
 # Zamknięcie połączenia
 conn.close()
+
+# db_test
