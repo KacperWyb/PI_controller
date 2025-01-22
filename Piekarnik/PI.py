@@ -70,12 +70,14 @@ T_otoczenia = 20  # Temperatura otoczenia (°C)
 V = 50  # Objętość piekarnika (litry)
 rho = 1.2  # Gęstość powietrza (kg/m³)
 c = 1.2  # Pojemność cieplna powietrza (kJ/(kg·°C))
-m = V * rho  # Masa powietrza w piekarniku (kg)
+m = V/1000 * rho  # Masa powietrza w piekarniku (kg)
 P_max = 2  # Górny zakres mocy grzałki (kW)
+# m * c ==> energia potrzebna do zmiany temperatury powietrza o jeden stopień celcjusza
+
 
 # Parametry regulatora PI
-Kp = 0.35  # Wzmocnienie proporcjonalne
-Ki = 30.006  # Wzmocnienie całkujące
+Kp = 0.2  # Wzmocnienie proporcjonalne
+Ki = 7  # Wzmocnienie całkujące
 integral_error = 0  # Skumulowany błąd
 
 # Wywołanie symulacji - konfiguracja

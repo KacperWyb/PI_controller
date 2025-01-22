@@ -46,32 +46,32 @@ def update_temperature_PI(T, T_docelowa, k, T_otoczenia, m, c, delta_t, integral
     error = T_docelowa - T
 
     # Aktualizacja skumulowanego błędu
-    max_integral_error = 1000
+    max_integral_error = 3000
     integral_error += error * delta_t
-    integral_error = max(-max_integral_error,
-                         min(integral_error, max_integral_error))
+    # integral_error = max(-max_integral_error,
+    #                      min(integral_error, max_integral_error))
 
     # Wyznaczenie mocy grzałki na podstawie regulatora PI
     P = Kp * (error + ((delta_t / Ki) * integral_error))
     P = max(0, min(P, 2))  # Ograniczenie mocy grzałki do zakresu [0, 2.0 kW]
 
+    # Obliczanie dostarczonej mocy do grzałki - sygnał sterujący
+    Q_dostarczone = P * delta_t
+    # Energia utracona poprzez nie perfekcyjną izolację piekarnika (kJ)
+    Q_utracone = k * (T - T_otoczenia) * delta_t
+    T_utracone = (Q_utracone / (m * c))   # Zmiana energii na temperaturę (°C)
+
+    print(f"kilo waty {Q_dostarczone}\dCiepło utracone {T_utracone}")
+
     # Obliczanie temperatury grzałki
-    if P > 0:
-        # Grzałka nagrzewa się, gdy jest włączona
-        T_grzalka += (P * delta_t / (m * c))
-    else:
-        # Grzałka stygnie, gdy jest wyłączona
-        T_grzalka -= grzalka_cooling_rate * delta_t
+    # grzałka ochładza się w zależności od tego jaka jest różnica temperatury pomiędzy temperaturą piekarnika a temperaturą grzałki
+    T_grzalka += (P * delta_t) - \
+        ((grzalka_cooling_rate * (T_grzalka - T) * delta_t) / (m*c))
     # Temperatura grzałki nie może spaść poniżej otoczenia
     T_grzalka = max(T, T_grzalka)
 
-    # Energia dostarczona przez grzałkę
-    # Uwzględnienie ciepła resztkowego
-    # Q_dostarczone = P * delta_t + 0.1 * (T_grzalka - T)
-    Q_dostarczone = 0.2 * (T_grzalka - T)
-    Q_utracone = k * (T - T_otoczenia) * delta_t  # Energia utracona (kJ)
-    delta_Q = Q_dostarczone - Q_utracone  # Energia netto (kJ)
-    delta_T = delta_Q / (m * c)  # Zmiana temperatury (°C)
+    # Temperatura dostarczona przez grzałkę
+    delta_T = 0.15 * (T_grzalka - T) - T_utracone
 
     return T + delta_T, integral_error, T_grzalka
 
@@ -79,31 +79,36 @@ def update_temperature_PI(T, T_docelowa, k, T_otoczenia, m, c, delta_t, integral
 # Parametry fizyczne
 k = 0.006  # Współczynnik strat cieplnych (kW/°C)
 T_otoczenia = 20  # Temperatura otoczenia (°C)
-V = 40  # Objętość piekarnika (litry)
+V = 50  # Objętość piekarnika (litry)
 rho = 1.2  # Gęstość powietrza (kg/m³)
-c = 1.1  # Pojemność cieplna powietrza (kJ/(kg·°C))
-m = V * rho  # Masa powietrza w piekarniku (kg)
+c = 1.2  # Pojemność cieplna powietrza (kJ/(kg·°C))
+m = V/1000 * rho  # Masa powietrza w piekarniku (kg)
+P_max = 2  # Górny zakres mocy grzałki (kW)
+# m * c ==> energia potrzebna do zmiany temperatury powietrza o jeden stopień celcjusza
+
 
 # Parametry regulatora PI
-Kp = 0.35  # Wzmocnienie proporcjonalne
-Ki = 450  # Wzmocnienie całkujące
+Kp = 1.2  # Wzmocnienie proporcjonalne
+Ki = 20  # Wzmocnienie całkujące
 integral_error = 0  # Skumulowany błąd
 
 # Parametry grzałki
 T_grzalka = 20  # Początkowa temperatura grzałki (°C)
-grzalka_cooling_rate = 0.01  # Współczynnik chłodzenia grzałki (°C/s)
+grzalka_cooling_rate = 0.0008  # Współczynnik chłodzenia grzałki (°C/s)
 
 # Parametry symulacji
 T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
 T_docelowa = 200  # Docelowa temperatura (°C)
 delta_t = 1  # Krok czasowy (s)
-sim_time = 11000  # Czas symulacji (s)
+sim_time = 1000  # Czas symulacji (s)
 total_time = 0  # Czas trwania symulacji (s)
 T_grzalka = 20  # Początkowa temperatura grzałki (°C)
 
 # Listy do przechowywania danych do wykresu
 times = []
-temperatures = []
+temperatura_piekarnik = []
+temperatura_grzalka = []
+temperatura_strata = []
 
 # Symulacja
 while total_time < sim_time:
@@ -111,7 +116,7 @@ while total_time < sim_time:
         T, T_docelowa, k, T_otoczenia, m, c, delta_t, integral_error, T_grzalka)
     total_time += delta_t
     times.append(total_time)
-    temperatures.append(T)
+    temperatura_piekarnik.append(T)
     print(
         f"Czas: {total_time}s, Temperatura: {T:.2f}°C, Temperatura grzałki: {T_grzalka:.2f}°C")
 
@@ -119,4 +124,4 @@ print(
     f"Osiągnięto temperaturę docelową {T_docelowa}°C po {total_time} sekundach.")
 
 # Wyświetlenie wykresu
-plot_temperature(times, temperatures)
+plot_temperature(times, temperatura_piekarnik)
