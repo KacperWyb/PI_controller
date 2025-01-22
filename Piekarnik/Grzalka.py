@@ -46,14 +46,12 @@ def update_temperature_PI(T, T_docelowa, k, T_otoczenia, m, c, delta_t, integral
     error = T_docelowa - T
 
     # Aktualizacja skumulowanego błędu
-    max_integral_error = 3000
     integral_error += error * delta_t
-    # integral_error = max(-max_integral_error,
-    #                      min(integral_error, max_integral_error))
 
     # Wyznaczenie mocy grzałki na podstawie regulatora PI
     P = Kp * (error + ((delta_t / Ki) * integral_error))
-    P = max(0, min(P, 2))  # Ograniczenie mocy grzałki do zakresu [0, 2.0 kW]
+    # Ograniczenie mocy grzałki do zakresu [0, 2.0 kW]
+    P = max(0, min(P, P_max))
 
     # Obliczanie dostarczonej mocy do grzałki - sygnał sterujący
     Q_dostarczone = P * delta_t
@@ -88,19 +86,19 @@ P_max = 2  # Górny zakres mocy grzałki (kW)
 
 
 # Parametry regulatora PI
-Kp = 1.2  # Wzmocnienie proporcjonalne
-Ki = 20  # Wzmocnienie całkujące
+Kp = 0.0005  # Wzmocnienie proporcjonalne
+Ki = 10  # Wzmocnienie całkujące
 integral_error = 0  # Skumulowany błąd
 
 # Parametry grzałki
 T_grzalka = 20  # Początkowa temperatura grzałki (°C)
-grzalka_cooling_rate = 0.0008  # Współczynnik chłodzenia grzałki (°C/s)
+grzalka_cooling_rate = 0.0012  # Współczynnik chłodzenia grzałki (°C/s)
 
 # Parametry symulacji
 T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
 T_docelowa = 200  # Docelowa temperatura (°C)
 delta_t = 1  # Krok czasowy (s)
-sim_time = 1000  # Czas symulacji (s)
+sim_time = 2000  # Czas symulacji (s)
 total_time = 0  # Czas trwania symulacji (s)
 T_grzalka = 20  # Początkowa temperatura grzałki (°C)
 
