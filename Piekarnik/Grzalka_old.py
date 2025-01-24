@@ -67,15 +67,14 @@ m = V/1000 * rho  # Masa powietrza w piekarniku (kg)
 P_max = 2  # Górny zakres mocy grzałki (kW)
 # m * c ==> energia potrzebna do zmiany temperatury powietrza o jeden stopień celcjusza
 
+# Parametry grzałki
+T_grzalka = 20  # Początkowa temperatura grzałki (°C)
+grzalka_cooling_rate = 0.0012  # Współczynnik chłodzenia grzałki (°C/s)
 
 # Parametry regulatora PI
 Kp = 0.0005  # Wzmocnienie proporcjonalne
 Ki = 10  # Wzmocnienie całkujące
 integral_error = 0  # Skumulowany błąd
-
-# Parametry grzałki
-T_grzalka = 20  # Początkowa temperatura grzałki (°C)
-grzalka_cooling_rate = 0.0012  # Współczynnik chłodzenia grzałki (°C/s)
 
 # Parametry symulacji
 T = T_otoczenia  # Początkowa temperatura piekarnika (°C)

@@ -84,18 +84,18 @@ p.line('x', 'y', source=source)
 
 # Slider do aktualizacji parametrów
 slider_h_zadane = Slider(title="Zadany poziom napełnienia zbiornika [%]", start=10, end=70, value=30, step=1)
-slider_t_1 = Slider(title="Czas zdwojenia [s]", start=5, end=100, value=20, step=0.5)
+slider_t_i = Slider(title="Czas zdwojenia [s]", start=5, end=100, value=20, step=0.5)
 slider_t_d = Slider(title="Czas wyprzedzania [s]", start=1, end=100, value=5, step=1)
 slider_kp = Slider(title="Wzmocnienie regulatora", start=0.0001, end=0.02, value=0.008, step=0.0001, format='0[.]0000')
 
-sliders_list = [slider_h_zadane, slider_t_1, slider_t_d, slider_kp]
+sliders_list = [slider_h_zadane, slider_t_i, slider_t_d, slider_kp]
 
 # Funkcja do aktualizacji danych
 def data_update(attr, old, new):
     global T, H, u
     new_h_zadane = slider_h_zadane.value / 10
 
-    t_i = slider_t_1.value
+    t_i = slider_t_i.value
     t_d = slider_t_d.value
     kp = slider_kp.value
 
@@ -123,5 +123,5 @@ for slider in sliders_list:
     slider.on_change('value', data_update)
 
 # Układ layout
-layout = row([column(slider_h_zadane, slider_t_1, slider_t_d, slider_kp), p])
+layout = row([column(slider_h_zadane, slider_t_i, slider_t_d, slider_kp), p])
 curdoc().add_root(layout)
