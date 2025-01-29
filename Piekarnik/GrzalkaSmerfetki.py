@@ -1,122 +1,131 @@
-import numpy as np
+from simpful import *
 import matplotlib.pyplot as plt
 
-
-def update_temperature_PI(T, T_docelowa, k, T_otoczenia, m, c, delta_t, integral_error, T_grzalka):
+# Tworzenie rozmytego regulatora PI
+def make_points(a, b, c, num_points=100):
     """
-    Oblicza nową temperaturę piekarnika po jednym kroku czasowym za pomocą regulatora PI.
+    Generuje punkty dla trójkątnego zbioru rozmytego.
 
     Args:
-        T (float): Aktualna temperatura piekarnika (°C).
-        T_docelowa (float): Docelowa temperatura (°C).
-        k (float): Współczynnik strat cieplnych (kW/°C).
-        T_otoczenia (float): Temperatura otoczenia (°C).
-        m (float): Masa powietrza w piekarniku (kg).
-        c (float): Pojemność cieplna powietrza (kJ/(kg·°C)).
-        delta_t (float): Krok czasowy (s).
-        integral_error (float): Skumulowany błąd (°C·s).
-        T_grzalka (float): Aktualna temperatura grzałki (°C).
+        a (float): Początek zakresu.
+        b (float): Wierzchołek trójkąta.
+        c (float): Koniec zakresu.
+        num_points (int): Liczba punktów do wygenerowania.
 
     Returns:
-        float: Nowa temperatura piekarnika (°C).
-        float: Zaktualizowany skumulowany błąd.
-        float: Nowa temperatura grzałki (°C).
+        list: Lista punktów [(x1, y1), (x2, y2), ...].
     """
-    # Obliczanie błędu
-    error = T_docelowa - T
+    import numpy as np
 
-    # Aktualizacja skumulowanego błędu
-    max_integral_error = 0
-    integral_error += error * delta_t
-    integral_error = max(-max_integral_error,
-                         min(integral_error, max_integral_error))
+    x_left = np.linspace(a, b, num_points // 2)
+    y_left = np.linspace(0, 1, num_points // 2)
 
-    # Wyznaczenie mocy grzałki na podstawie regulatora PI
-    P = Kp * (error + ((delta_t / Ki) * integral_error))
-    P = max(0, min(P, 20))  # Ograniczenie mocy grzałki do zakresu [0, 2.0 kW]
+    x_right = np.linspace(b, c, num_points // 2)
+    y_right = np.linspace(1, 0, num_points // 2)
 
-    # Obliczanie temperatury grzałki
-    if P > 0:
-        # Grzałka nagrzewa się, gdy jest włączona
-        T_grzalka += (P * delta_t / (m * c))
-    else:
-        # Grzałka stygnie, gdy jest wyłączona
-        T_grzalka -= grzalka_cooling_rate * delta_t
-    # Temperatura grzałki nie może spaść poniżej otoczenia
-    T_grzalka = max(T_otoczenia, T_grzalka)
+    x = np.concatenate((x_left, x_right))
+    y = np.concatenate((y_left, y_right))
 
-    # Energia dostarczona do piekarnika zależna od temperatury grzałki
-    # Ciepło przekazywane proporcjonalnie do różnicy temperatur
-    Q_dostarczone = alpha * (T_grzalka - T) * delta_t
-    Q_utracone = k * (T - T_otoczenia) * delta_t  # Energia utracona (kJ)
-    delta_Q = Q_dostarczone - Q_utracone  # Energia netto (kJ)
-    delta_T = delta_Q / (m * c)  # Zmiana temperatury (°C)
+    return list(zip(x, y))
 
-    return T + delta_T, integral_error, T_grzalka
+def create_fuzzy_pi():
+    FS = FuzzySystem()
 
+    # Różnica temperatury (wejście)
+    S1 = FuzzySet(points=make_points(-100, 50, 50), term="zimno")
+    S2 = FuzzySet(points=make_points(0, 50, 100), term="ciepło")
+    S3 = FuzzySet(points=make_points(50, 100, 150), term="gorąco")
+    FS.add_linguistic_variable("różnica_temperatury", LinguisticVariable([S1, S2, S3]))
 
-def plot_temperature(times, temperatures):
-    """
-    Wyświetla wykres zmiany temperatury w czasie.
+    # Błąd całkowity (wejście)
+    I1 = FuzzySet(points=make_points(-500, -250, 0), term="niski")
+    I2 = FuzzySet(points=make_points(-250, 0, 250), term="średni")
+    I3 = FuzzySet(points=make_points(0, 250, 500), term="wysoki")
+    FS.add_linguistic_variable("błąd_całkowity", LinguisticVariable([I1, I2, I3]))
 
-    Args:
-        times (list of float): Lista czasów (sekundy).
-        temperatures (list of float): Lista temperatur (°C).
-    """
-    plt.figure(figsize=(10, 6))
-    plt.plot(times, temperatures, label="Temperatura piekarnika", linewidth=2)
-    plt.axhline(y=200, color='r', linestyle='--',
-                label="Temperatura docelowa (200°C)")
-    plt.xlabel("Czas (s)")
-    plt.ylabel("Temperatura (°C)")
-    plt.title("Zmiana temperatury w czasie")
-    plt.legend()
-    plt.grid()
-    plt.show()
+    # Moc grzałki (wyjście)
+    P1 = FuzzySet(points=make_points(0, 0.5, 1.0), term="niska")
+    P2 = FuzzySet(points=make_points(0.5, 1.5, 2.0), term="średnia")
+    P3 = FuzzySet(points=make_points(1.5, 2.5, 3.0), term="wysoka")
+    FS.add_linguistic_variable("moc_grzałki", LinguisticVariable([P1, P2, P3]))
+
+    # Reguły logiki rozmytej
+    rules = [
+        "IF (różnica_temperatury IS zimno) AND (błąd_całkowity IS niski) THEN (moc_grzałki IS wysoka)",
+        "IF (różnica_temperatury IS zimno) AND (błąd_całkowity IS średni) THEN (moc_grzałki IS średnia)",
+        "IF (różnica_temperatury IS zimno) AND (błąd_całkowity IS wysoki) THEN (moc_grzałki IS średnia)",
+        "IF (różnica_temperatury IS ciepło) AND (błąd_całkowity IS średni) THEN (moc_grzałki IS średnia)",
+        "IF (różnica_temperatury IS gorąco) AND (błąd_całkowity IS wysoki) THEN (moc_grzałki IS niska)"
+    ]
+    FS.add_rules(rules)
+
+    return FS
 
 
-# Parametry fizyczne
-k = 0.006  # Współczynnik strat cieplnych (kW/°C)
+
+
+# Symulacja piekarnika
+
+
+def simulate_oven(FS, T_otoczenia, T_docelowa, T_start, P_max, k, c, m, delta_t, sim_time):
+    times = []
+    temperatures = []
+    T = T_start
+    integral_error = 0  # Początkowy błąd całkowity
+
+    for t in range(0, sim_time, delta_t):
+        # Obliczanie różnicy temperatury
+        delta_T = T_docelowa - T
+
+        # Aktualizacja błędu całkowitego
+        integral_error += delta_T * delta_t
+
+        # Ustawienie wejść do systemu rozmytego
+        FS.set_variable("różnica_temperatury", delta_T)
+        FS.set_variable("błąd_całkowity", integral_error)
+
+        # Obliczenie mocy grzałki
+        moc = FS.inference()["moc_grzałki"] * P_max
+
+        # Bilans cieplny
+        Q_dostarczone = moc * delta_t
+        Q_utracone = k * (T - T_otoczenia) * delta_t
+        delta_Q = Q_dostarczone - Q_utracone
+        delta_T_sim = delta_Q / (m * c)
+
+        # Aktualizacja temperatury
+        T += delta_T_sim
+        print(T)
+
+    return times, temperatures
+
+
+# Parametry fizyczne i symulacji
 T_otoczenia = 20  # Temperatura otoczenia (°C)
-V = 40  # Objętość piekarnika (litry)
-rho = 1.2  # Gęstość powietrza (kg/m³)
-c = 1.1  # Pojemność cieplna powietrza (kJ/(kg·°C))
-m = V * rho  # Masa powietrza w piekarniku (kg)
-
-# Parametry regulatora PI
-Kp = 10  # Wzmocnienie proporcjonalne
-Ki = 50  # Wzmocnienie całkujące
-integral_error = 0  # Skumulowany błąd
-
-# Parametry grzałki
-T_grzalka = 20  # Początkowa temperatura grzałki (°C)
-grzalka_cooling_rate = 0.24  # Współczynnik chłodzenia grzałki (°C/s)
-alpha = 1  # Procent różnicy temperatury grzałki przekazywanej do piekarnika
-
-# Parametry symulacji
-T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
-T_docelowa = 200  # Docelowa temperatura (°C)
+T_docelowa = 200  # Docelowa temperatura piekarnika (°C)
+T_start = 20  # Początkowa temperatura piekarnika (°C)
+P_max = 2  # Maksymalna moc grzałki (kW)
+k = 0.006  # Współczynnik strat cieplnych (kW/°C)
+c = 1.2  # Pojemność cieplna powietrza (kJ/(kg·°C))
+m = 50 / 1000 * 1.2  # Masa powietrza (kg)
 delta_t = 1  # Krok czasowy (s)
-sim_time = 1000  # Czas symulacji (s)
-total_time = 0  # Czas trwania symulacji (s)
-T_grzalka = 20  # Początkowa temperatura grzałki (°C)
+sim_time = 2000  # Czas symulacji (s)
 
-# Listy do przechowywania danych do wykresu
-times = []
-temperatures = []
+# Tworzenie regulatora Fuzzy PI
+FS = create_fuzzy_pi()
 
-# Symulacja
-while total_time < sim_time:
-    T, integral_error, T_grzalka = update_temperature_PI(
-        T, T_docelowa, k, T_otoczenia, m, c, delta_t, integral_error, T_grzalka)
-    total_time += delta_t
-    times.append(total_time)
-    temperatures.append(T)
-    print(
-        f"Czas: {total_time}s, Temperatura: {T:.2f}°C, Temperatura grzałki: {T_grzalka:.2f}°C")
+# Uruchomienie symulacji
+times, temperatures = simulate_oven(
+    FS, T_otoczenia, T_docelowa, T_start, P_max, k, c, m, delta_t, sim_time)
 
-print(
-    f"Osiągnięto temperaturę docelową {T_docelowa}°C po {total_time} sekundach.")
-
-# Wyświetlenie wykresu
-plot_temperature(times, temperatures)
+# Wizualizacja wyników
+plt.figure(figsize=(10, 6))
+plt.plot(times, temperatures, label="Temperatura piekarnika", linewidth=2)
+plt.axhline(y=T_docelowa, color='r', linestyle='--',
+            label="Temperatura docelowa (200°C)")
+plt.xlabel("Czas (s)")
+plt.ylabel("Temperatura (°C)")
+plt.title("Symulacja piekarnika z rozmytym regulatorem PI")
+plt.legend()
+plt.grid()
+plt.show()
