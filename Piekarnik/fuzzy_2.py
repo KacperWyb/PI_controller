@@ -2,8 +2,6 @@ from simpful import *
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Tworzenie rozmytego regulatora PI
-
 
 def create_fuzzy_pi():
     FS = FuzzySystem()
@@ -52,7 +50,6 @@ def create_fuzzy_pi():
     FS.add_rules(rules)
     return FS
 
-# Funkcja do przeprowadzenia symulacji piekarnika
 
 
 def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, c, m, delta_t, sim_time):
@@ -66,7 +63,7 @@ def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, c, m, delta_t, sim_time):
         delta_error = error - prev_error
         prev_error = error
 
-        # Ustawienie wartości wejściowych w systemie rozmytym
+        # Ustawienie wartości wejściowych
         FS.set_variable("error", error)
         FS.set_variable("delta_error", delta_error)
 
@@ -84,15 +81,12 @@ def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, c, m, delta_t, sim_time):
         delta_Temp = 0.15 * (T_grzalka - T) - T_utracone
         T += delta_Temp
 
-        # Zapisywanie wyników
         times.append(t)
         temperatures.append(T)
         power.append(P)
-        print(T)
 
     return times, temperatures, power
 
-# Wizualizacja wyników symulacji
 
 
 def plot_results(times, temperatures, power):
@@ -127,7 +121,7 @@ m = 50 / 1000 * 1.2  # Masa powietrza (kg)
 delta_t = 1  # Krok czasowy (s)
 sim_time = 400  # Czas symulacji (s)
 
-# Tworzenie regulatora Fuzzy PI
+# Inicjalizacja regulatora Fuzzy PI
 FS = create_fuzzy_pi()
 
 # Uruchomienie symulacji

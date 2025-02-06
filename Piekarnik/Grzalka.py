@@ -130,7 +130,7 @@ p = figure(title="Symulacja nagrzewania piekarnika o objętości 50 l\n"
                  "Współczynnik strat cieplnych grzałki 0012 kW/°C\n"
                  "Temperatura otoczenia 20 °C\n"
                  "Docelowa temperatura 200 °C",
-           x_axis_label="czas [min]", y_axis_label="Temperatura wewnątrz piekarnika [°C]")
+           x_axis_label="czas [s]", y_axis_label="Temperatura wewnątrz piekarnika [°C]")
 p.title.text_font_size = "20px"
 source = ColumnDataSource(data=dict(x=time, y=temperatura_piekarnik))
 p.line(source=source)
@@ -146,7 +146,7 @@ p_1.line(source=source_2, legend_label="Utrata temperatury", color="red")
 p_1.legend.title = "Legenda"
 
 p_2 = figure(title="Zależność sygnału sterującego od czasu",
-             x_axis_label="czas [min]", y_axis_label="Temperatura utracona [°C]")
+             x_axis_label="czas [s]", y_axis_label="Temperatura utracona [°C]")
 p_2.title.text_font_size = "20px"
 source_3 = ColumnDataSource(data=dict(x=time, y=wartosc_sterujaca))
 p_2.line(source=source_3)
