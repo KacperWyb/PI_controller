@@ -22,7 +22,7 @@ slider_T_zadane = Slider(
 slider_ki = Slider(
     title="Wzmocnienie całkujące [s]", start=5, end=400, value=10, step=5)
 slider_kp = Slider(title="Wzmocnienie proporcjonalne", start=0.001,
-                   end=0.02, value=0.001, step=0.001, format='0[.]0000')
+                   end=0.05, value=0.001, step=0.001, format='0[.]0000')
 sliders_list = [slider_T_zadane, slider_ki, slider_kp]
 
 
@@ -83,7 +83,7 @@ V = 50  # Objętość piekarnika (litry)
 rho = 1.2  # Gęstość powietrza (kg/m³)
 c = 1.2  # Pojemność cieplna powietrza (kJ/(kg·°C))
 m = V/1000 * rho  # Masa powietrza w piekarniku (kg)
-P_max = 2  # Górny zakres mocy grzałki (kW)
+P_max = 2.5  # Górny zakres mocy grzałki (kW)
 # m * c ==> energia potrzebna do zmiany temperatury powietrza o jeden stopień celcjusza
 
 # Parametry grzałki
@@ -107,7 +107,7 @@ skumulowany_uchyb = 0  # Skumulowany uchyb
 T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
 T_docelowa = 200  # Docelowa temperatura (°C)
 delta_t = 1  # Krok czasowy (s)
-sim_time = 2000  # Czas symulacji (s)
+sim_time = 400  # Czas symulacji (s)
 total_time = 0  # Czas trwania symulacji (s)
 
 
@@ -171,7 +171,7 @@ def chart_update():
     T_grzalka = T_otoczenia
     T_docelowa = slider_T_zadane.value  # Docelowa temperatura (°C)
     delta_t = 1  # Krok czasowy (s)
-    sim_time = 2000  # Czas symulacji (s)v
+    sim_time = 400  # Czas symulacji (s)v
 
     for i in range(0, sim_time):
         T, skumulowany_uchyb, T_grzalka, T_utracone, P = update_temperature_PI(
