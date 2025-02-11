@@ -9,29 +9,29 @@ def create_fuzzy_pi():
     # Definicja zakresów zmiennych
     error_range = [-100, 190]
     delta_error_range = [-40, 30]
-    delta_u_range = [0, 2.5]
+    delta_u_range = [0, 1]
 
     # Definicja funkcji przynależności dla błędu
     E_Neg = FuzzySet(function=Triangular_MF(a=-100, b=-25, c=0), term="neg")
-    E_Zero = FuzzySet(function=Triangular_MF(a=-2, b=0, c=2), term="zero")
+    E_Zero = FuzzySet(function=Triangular_MF(a=-3, b=0, c=3), term="zero")
     E_Pos = FuzzySet(function=Triangular_MF(a=0, b=125, c=190), term="pos")
     FS.add_linguistic_variable("error", LinguisticVariable(
         [E_Neg, E_Zero, E_Pos], universe_of_discourse=error_range))
 
     # Definicja funkcji przynależności dla zmiany błędu
     DE_Neg = FuzzySet(function=Triangular_MF(a=-40, b=-20, c=0), term="neg")
-    DE_Zero = FuzzySet(function=Triangular_MF(a=-1, b=0, c=1), term="zero")
+    DE_Zero = FuzzySet(function=Triangular_MF(a=-7, b=0, c=7), term="zero")
     DE_Pos = FuzzySet(function=Triangular_MF(a=0, b=20, c=30), term="pos")
     FS.add_linguistic_variable("delta_error", LinguisticVariable(
         [DE_Neg, DE_Zero, DE_Pos], universe_of_discourse=delta_error_range))
 
     # Definicja funkcji przynależności dla zmiany sterowania
     DU_Decrease = FuzzySet(function=Triangular_MF(
-        a=1, b=1.5, c=1.7), term="decrease")
+        a=0.3, b=0.35, c=0.5), term="decrease")
     DU_NoChange = FuzzySet(function=Triangular_MF(
-        a=1.5, b=1.9, c=2.2), term="no_change")
+        a=0.4, b=0.55, c=0.7), term="no_change")
     DU_Increase = FuzzySet(function=Triangular_MF(
-        a=2, b=2.4, c=2.5), term="increase")
+        a=0.6, b=0.9, c=1), term="increase")
     FS.add_linguistic_variable("delta_u", LinguisticVariable(
         [DU_Decrease, DU_NoChange, DU_Increase], universe_of_discourse=delta_u_range))
 
@@ -51,13 +51,10 @@ def create_fuzzy_pi():
     return FS
 
 
-
-def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, c, m, delta_t, sim_time):
+def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, cp, delta_t, sim_time):
     times, temperatures, power = [], [], []
     T = T_ambient
     prev_error = 0
-    T_grzalka = T_ambient
-    grzalka_cooling_rate = 0.0012
     for t in range(0, sim_time, delta_t):
         error = T_setpoint - T
         delta_error = error - prev_error
@@ -68,17 +65,13 @@ def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, c, m, delta_t, sim_time):
         FS.set_variable("delta_error", delta_error)
 
         # Wyznaczenie sygnału sterującego
-        P = FS.inference()["delta_u"]
+        P = FS.inference()["delta_u"] * P_max
 
         # Aktualizacja bilansu cieplnego
-        T_grzalka += (P * delta_t) - \
-            ((grzalka_cooling_rate * (T_grzalka - T) * delta_t) / (m*c))
-        T_grzalka = max(T, T_grzalka)
-
+        Q_dostarczone = P * delta_t
         Q_utracone = k * (T - T_ambient) * delta_t
-        T_utracone = (Q_utracone / (m * c))
 
-        delta_Temp = 0.15 * (T_grzalka - T) - T_utracone
+        delta_Temp = (Q_dostarczone - Q_utracone) / cp
         T += delta_Temp
 
         times.append(t)
@@ -86,7 +79,6 @@ def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, c, m, delta_t, sim_time):
         power.append(P)
 
     return times, temperatures, power
-
 
 
 def plot_results(times, temperatures, power):
@@ -116,17 +108,20 @@ T_ambient = 20  # Temperatura otoczenia (°C)
 T_setpoint = 200  # Temperatura docelowa (°C)
 P_max = 2  # Maksymalna moc grzałki (kW)
 k = 0.006  # Współczynnik strat cieplnych (kW/°C)
-c = 1.2  # Pojemność cieplna powietrza (kJ/(kg·°C))
-m = 50 / 1000 * 1.2  # Masa powietrza (kg)
+rho = 1.2  # Gęstość powietrza (kg/m³)
+V = 50  # Objętość piekarnika (litry)
+m = V / 1000 * rho  # Masa powietrza (kg)
+c = 1.005  # ciepło właściwe (kJ/(kg·°C))
+cp = c * m  # pojemność cieplna [kJ/°C]
 delta_t = 1  # Krok czasowy (s)
-sim_time = 400  # Czas symulacji (s)
+sim_time = 100  # Czas symulacji (s)
 
 # Inicjalizacja regulatora Fuzzy PI
 FS = create_fuzzy_pi()
 
 # Uruchomienie symulacji
 times, temperatures, power = simulate_oven(
-    FS, T_setpoint, T_ambient, P_max, k, c, m, delta_t, sim_time)
+    FS, T_setpoint, T_ambient, P_max, k, cp, delta_t, sim_time)
 
 # Wizualizacja wyników
 plot_results(times, temperatures, power)

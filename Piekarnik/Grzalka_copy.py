@@ -4,6 +4,8 @@ from bokeh.io import curdoc, show
 from bokeh.layouts import layout, column, row, gridplot
 from bokeh.models import CustomJS, ColumnDataSource, Slider, Button, CustomJS
 from bokeh.plotting import figure
+from simpful import *
+from fuzzy_2 import create_fuzzy_pi, simulate_oven
 import csv
 
 """ OPIS
@@ -25,41 +27,25 @@ cp : ciepło właściwe powietrza ≈1005 J/(kg·°C)
 1 Wat = 1 dżul na sekundę
 2.5kW  w ciągu 1 sekundy = 2500 Dżuli
 
-Gęstość Powietrza = 1.2kg/m^3
-Pojemność Piekarnika = 60 litrów
-Masa Powietrza w piekarniku 1200g / 10000 * 60 = 7.2 gr
+Gęstość Powietrza = 1.2 [kg/m^3]
+Pojemność Piekarnika = 60 [l]
+Masa Powietrza w piekarniku 1200g / 10000 * 60 = 7.2 [gr]
+Ciepło właściwe powietrza: c = 1.005 [kJ / kg * °C]
+Pojemność cieplna : pc = m * c [kJ / °C]
  """
 
 # Slider do aktualizacji parametrów
 slider_T_zadane = Slider(
     title="Zadana temperatura [°C]", start=100, end=200, value=200, step=10)
-slider_ki = Slider(
-    title="Wzmocnienie całkujące [s]", start=5, end=400, value=10, step=5)
-slider_kp = Slider(title="Wzmocnienie proporcjonalne", start=0.001,
-                   end=0.05, value=0.001, step=0.001, format='0[.]0000')
-sliders_list = [slider_T_zadane, slider_ki, slider_kp]
+slider_Ti = Slider(
+    title="Wzmocnienie całkujące [s]", start=1, end=10, value=1, step=0.5)
+slider_kp = Slider(title="Wzmocnienie proporcjonalne", start=0.0001,
+                   end=0.002, value=0.001, step=0.0001, format='0[.]0000')
+sliders_list = [slider_T_zadane, slider_Ti, slider_kp]
 
 
-def update_temperature_PI(T, T_docelowa, k, T_otoczenia, m, c, delta_t, skumulowany_uchyb, T_grzalka, Kp_local, Ki_local):
-    """
-    Oblicza nową temperaturę piekarnika po jednym kroku czasowym za pomocą regulatora PI.
-
-    Args:
-        T (float): Aktualna temperatura piekarnika (°C).
-        T_docelowa (float): Docelowa temperatura (°C).
-        k (float): Współczynnik strat cieplnych (kW/°C).
-        T_otoczenia (float): Temperatura otoczenia (°C).
-        m (float): Masa powietrza w piekarniku (kg).
-        c (float): Pojemność cieplna powietrza (kJ/(kg·°C)).
-        delta_t (float): Krok czasowy (s).
-        skumulowany_uchyb (float): Skumulowany uchyb (°C·s).
-        T_grzalka (float): Aktualna temperatura grzałki (°C).
-
-    Returns:
-        float: Nowa temperatura piekarnika (°C).
-        float: Zaktualizowany skumulowany uchyb.
-        float: Nowa temperatura grzałki (°C).
-    """
+def update_temperature_PI(T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowany_uchyb, Kp_local, Ti_local):
+    # Oblicza nową temperaturę piekarnika po jednym kroku czasowym za pomocą regulatora PI.
     # Obliczanie błędu
     uchyb = T_docelowa - T
 
@@ -67,27 +53,20 @@ def update_temperature_PI(T, T_docelowa, k, T_otoczenia, m, c, delta_t, skumulow
     skumulowany_uchyb += uchyb * delta_t
 
     # Wyznaczenie mocy grzałki na podstawie regulatora PI
-    P = Kp_local * (uchyb + ((delta_t / Ki_local) * skumulowany_uchyb))
-    # Ograniczenie mocy grzałki do zakresu [0, 2.0 kW]
-    P = max(0, min(P, P_max))
+    Q = max(0, min(Kp_local * (uchyb + ((delta_t / Ti_local) * skumulowany_uchyb)), 1))
 
-    # Obliczanie dostarczonej mocy do grzałki - sygnał sterujący
+    # Ograniczenie mocy grzałki do zakresu [0, 2 kW]
+    P = Q * P_max
+
+    # Obliczanie dostarczonej mocy do grzałki - sygnał sterujący [kW * s = kJ] [Kilo Dżul]
     Q_dostarczone = P * delta_t
-    # Energia utracona poprzez nie perfekcyjną izolację piekarnika (kJ)
+    # Energia utracona poprzez nie perfekcyjną izolację piekarnika [kW * s = kJ] [Kilo Dżul]
     Q_utracone = k * (T - T_otoczenia) * delta_t
-    T_utracone = (Q_utracone / (m * c))   # Zmiana energii na temperaturę (°C)
 
-    # Obliczanie temperatury grzałki
-    # grzałka ochładza się w zależności od tego jaka jest różnica temperatury pomiędzy temperaturą piekarnika a temperaturą grzałki
-    T_grzalka += (P * delta_t) - \
-        ((grzalka_cooling_rate * (T_grzalka - T) * delta_t) / (m*c))
-    # Temperatura grzałki nie może spaść poniżej otoczenia
-    T_grzalka = max(T, T_grzalka)
+    # Temperatura dostarczona przez grzałkę [kJ / kJ / °C = kJ * °C / kJ = °C] [°C]
+    delta_T = (Q_dostarczone - Q_utracone) / cp
 
-    # Temperatura dostarczona przez grzałkę
-    delta_T = 0.15 * (T_grzalka - T) - T_utracone
-
-    return T + delta_T, skumulowany_uchyb, T_grzalka, T_utracone, P
+    return T + delta_T, skumulowany_uchyb, Q_utracone, P
 
 
 # Parametry fizyczne piekarnika
@@ -95,75 +74,82 @@ k = 0.006  # Współczynnik strat cieplnych (kW/°C)
 T_otoczenia = 20  # Temperatura otoczenia (°C)
 V = 50  # Objętość piekarnika (litry)
 rho = 1.2  # Gęstość powietrza (kg/m³)
-c = 1.2  # Pojemność cieplna powietrza (kJ/(kg·°C))
 m = V/1000 * rho  # Masa powietrza w piekarniku (kg)
-P_max = 2.5  # Górny zakres mocy grzałki (kW)
-# m * c ==> energia potrzebna do zmiany temperatury powietrza o jeden stopień celcjusza
+c = 1.005  # ciepło właściwe (kJ/(kg·°C))
+cp = c * m  # pojemność cieplna [kJ/°C]
+P_max = 2  # Górny zakres mocy grzałki (kW)
 
-# Parametry grzałki
-T_grzalka = 20  # Początkowa temperatura grzałki (°C)
-grzalka_cooling_rate = 0.0012  # Współczynnik chłodzenia grzałki (kW/°C)
 
 # Listy do przechowywania danych do wykresu
 time = []
 temperatura_piekarnik = []
-temperatura_grzalka = []
 temperatura_strata = []
 wartosc_sterujaca = []
 
 # Inicjacja wykresu
 # Parametry regulatora PI
 Kp = 0.0005  # Wzmocnienie proporcjonalne
-Ki = 10  # Wzmocnienie całkujące
+Ti = 10  # Wzmocnienie całkujące
 skumulowany_uchyb = 0  # Skumulowany uchyb
 
 # Parametry symulacji
 T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
 T_docelowa = 200  # Docelowa temperatura (°C)
 delta_t = 1  # Krok czasowy (s)
-sim_time = 400  # Czas symulacji (s)
+sim_time = 200  # Czas symulacji (s)
 total_time = 0  # Czas trwania symulacji (s)
 
 
-# Symulacja
+# Symulacja zwypły PI
 while total_time < sim_time:
-    T, skumulowany_uchyb, T_grzalka, T_utracone, P = update_temperature_PI(
-        T, T_docelowa, k, T_otoczenia, m, c, delta_t, skumulowany_uchyb, T_grzalka, Kp, Ki)
+    T, skumulowany_uchyb, T_utracone, P = update_temperature_PI(
+        T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowany_uchyb, Kp, Ti)
     total_time += delta_t
     time.append(total_time)
     temperatura_piekarnik.append(T)
-    temperatura_grzalka.append(T_grzalka)
     temperatura_strata.append(T_utracone)
     wartosc_sterujaca.append(P)
 
+# wywołanie symulacji PI rozmyty
+FS = create_fuzzy_pi()
+times_fuzzy, temperatures_fuzzy, power_fuzzy = simulate_oven(
+    FS, T_docelowa, T_otoczenia, P_max, k, cp, delta_t, sim_time)
 
 # ustawienia wykresu
 p = figure(title="Symulacja nagrzewania piekarnika o objętości 50 l\n"
                  "Moc grzałki 2 Kw \n"
                  "Współczynnik strat cieplnych piekarnika 0.006 kW/°C\n"
-                 "Współczynnik strat cieplnych grzałki 0012 kW/°C\n"
                  "Temperatura otoczenia 20 °C\n"
-                 "Docelowa temperatura 200 °C",
+                 f"Docelowa temperatura {T_otoczenia} °C",
            x_axis_label="czas [s]", y_axis_label="Temperatura wewnątrz piekarnika [°C]")
 p.title.text_font_size = "20px"
 source = ColumnDataSource(data=dict(x=time, y=temperatura_piekarnik))
 p.line(source=source)
 
 
-p_1 = figure(title="Zależność temperatury grzałki wewnątrz piekarnika od czasu",
-             x_axis_label="czas [s]", y_axis_label="Temperatura grzałki [°C]")
+p_1 = figure(title="Zależność straty energii od czasu",
+             x_axis_label="czas [s]", y_axis_label="Utracona energia [kJ]")
 p_1.title.text_font_size = "20px"
-source_1 = ColumnDataSource(data=dict(x=time, y=temperatura_grzalka))
 source_2 = ColumnDataSource(data=dict(x=time, y=temperatura_strata))
-p_1.line(source=source_1, legend_label="Temperatura Grzałki", color="blue")
-p_1.line(source=source_2, legend_label="Utrata temperatury", color="red")
-p_1.legend.title = "Legenda"
+p_1.line(source=source_2)
 
 p_2 = figure(title="Zależność sygnału sterującego od czasu",
-             x_axis_label="czas [s]", y_axis_label="Temperatura utracona [°C]")
+             x_axis_label="czas [s]", y_axis_label="Moc [kW]")
 p_2.title.text_font_size = "20px"
 source_3 = ColumnDataSource(data=dict(x=time, y=wartosc_sterujaca))
 p_2.line(source=source_3)
+
+p_4 = figure(title="Nagrzewanie piekarnika z wykorzystaniem Fuzzy PI",
+             x_axis_label="czas [s]", y_axis_label="Temperatura wewnątrz piekarnika [°C]")
+p_4.title.text_font_size = "20px"
+source_4 = ColumnDataSource(data=dict(x=times_fuzzy, y=temperatures_fuzzy))
+p_4.line(source=source_4)
+
+p_5 = figure(title="Zależność sygnału sterującego od czasu",
+             x_axis_label="czas [s]", y_axis_label="Moc [kW]")
+p_5.title.text_font_size = "20px"
+source_5 = ColumnDataSource(data=dict(x=times_fuzzy, y=power_fuzzy))
+p_5.line(source=source_5)
 
 
 def chart_update():
@@ -171,7 +157,7 @@ def chart_update():
 
     # Parametry regulatora PI
     Kp = slider_kp.value  # Wzmocnienie proporcjonalne
-    Ki = slider_ki.value  # Wzmocnienie całkujące
+    Ti = slider_Ti.value  # Wzmocnienie całkujące
     skumulowany_uchyb = 0  # Skumulowany uchyb
 
     time = []
@@ -182,25 +168,22 @@ def chart_update():
 
     # Parametry symulacji
     T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
-    T_grzalka = T_otoczenia
     T_docelowa = slider_T_zadane.value  # Docelowa temperatura (°C)
     delta_t = 1  # Krok czasowy (s)
     sim_time = 400  # Czas symulacji (s)v
 
     for i in range(0, sim_time):
-        T, skumulowany_uchyb, T_grzalka, T_utracone, P = update_temperature_PI(
-            T, T_docelowa, k, T_otoczenia, m, c, delta_t, skumulowany_uchyb, T_grzalka, Kp, Ki)
+        T, skumulowany_uchyb, T_utracone, P = update_temperature_PI(
+            T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowany_uchyb, Kp, Ti)
         time.append(i)
         temperatura_piekarnik.append(T)
-        temperatura_grzalka.append(T_grzalka)
         temperatura_strata.append(T_utracone)
         wartosc_sterujaca.append(P)
         print(
-            f"Czas: {i}s, Temperatura: {T:.2f}°C, Temperatura grzałki: {T_grzalka:.2f}°C")
+            f"Czas: {i}s, Temperatura: {T:.2f}°C")
 
     # Aktualizacja danych na wykresach
     source.data = dict(x=time, y=temperatura_piekarnik)
-    source_1.data = dict(x=time, y=temperatura_grzalka)
     source_2.data = dict(x=time, y=temperatura_strata)
     source_3.data = dict(x=time, y=wartosc_sterujaca)
 
@@ -211,8 +194,9 @@ button = Button(label="Wygeneruj grafy",
 button.on_click(chart_update)
 
 
-page = layout([row(button, slider_T_zadane, slider_ki, slider_kp),
-              row(column(p), column(p_1), column(p_2))])
+page = layout([row(button, slider_T_zadane, slider_Ti, slider_kp),
+              row(column(p), column(p_1), column(p_2)),
+              row(column(p_4), column(p_5))])
 
 
 curdoc().add_root(page)
