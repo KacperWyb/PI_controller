@@ -165,6 +165,9 @@ def chart_update():
     temperatura_grzalka = []
     temperatura_strata = []
     wartosc_sterujaca = []
+    times_fuzzy = []
+    temperatures_fuzzy = []
+    power_fuzzy = []
 
     # Parametry symulacji
     T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
@@ -172,6 +175,7 @@ def chart_update():
     delta_t = 1  # Krok czasowy (s)
     sim_time = 400  # Czas symulacji (s)v
 
+    # Symulacja zwykły PI
     for i in range(0, sim_time):
         T, skumulowany_uchyb, T_utracone, P = update_temperature_PI(
             T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowany_uchyb, Kp, Ti)
@@ -182,10 +186,17 @@ def chart_update():
         print(
             f"Czas: {i}s, Temperatura: {T:.2f}°C")
 
+    # Symulacja PI Rozmyty
+    FS = create_fuzzy_pi()
+    times_fuzzy, temperatures_fuzzy, power_fuzzy = simulate_oven(
+        FS, T_docelowa, T_otoczenia, P_max, k, cp, delta_t, sim_time)
+
     # Aktualizacja danych na wykresach
     source.data = dict(x=time, y=temperatura_piekarnik)
     source_2.data = dict(x=time, y=temperatura_strata)
     source_3.data = dict(x=time, y=wartosc_sterujaca)
+    source_4.data = dict(x=times_fuzzy, y=temperatures_fuzzy)
+    source_5.data = dict(x=times_fuzzy, y=power_fuzzy)
 
 
 button = Button(label="Wygeneruj grafy",
