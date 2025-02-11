@@ -7,6 +7,7 @@ from bokeh.plotting import figure
 from simpful import *
 from fuzzy_2 import create_fuzzy_pi, simulate_oven
 import csv
+import sqlite3
 
 """ OPIS
 Grzałka nagrzewa powietrze wewnątrz piekarnika (Konwekcja) oraz ścianki piekarnika (Promieniowanie).
@@ -33,6 +34,34 @@ Masa Powietrza w piekarniku 1200g / 10000 * 60 = 0.0072 [kg]
 Ciepło właściwe powietrza: c = 1.005 [kJ / kg * °C]
 Pojemność cieplna : pc = m * c [kJ / °C]
 """
+
+# Tworzenie lub łączenie z bazą danych SQLite
+conn = sqlite3.connect("PID_simulation.db")
+cursor = conn.cursor()
+
+# Tworzenie tabeli, jeśli nie istnieje
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS simulation_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    czas REAL,
+    temperatura REAL,
+    wartosc_sterujaca REAL
+)
+""")
+conn.commit()
+
+# Funkcja do zapisywania danych do bazy SQLite
+def save_to_db(T, temperature, u):
+    cursor.execute("DELETE FROM simulation_data")  # Wyczyść tabelę przed zapisem
+    for t, h, ctrl in zip(T, temperature, u):
+        cursor.execute("INSERT INTO simulation_data (czas, temperatura, wartosc_sterujaca) VALUES (?, ?, ?)", (t, h, ctrl))
+    conn.commit()
+
+# Funkcja do odczytu danych z bazy SQLite
+def load_from_db():
+    cursor.execute("SELECT czas, temperatura FROM simulation_data")
+    rows = cursor.fetchall()
+    return [row[0] for row in rows], [row[1] for row in rows]
 
 # Slider do aktualizacji parametrów
 slider_T_zadane = Slider(
@@ -114,6 +143,8 @@ while total_time < sim_time:
 FS = create_fuzzy_pi()
 times_fuzzy, temperatures_fuzzy, power_fuzzy, Q_lost = simulate_oven(
     FS, T_docelowa, T_otoczenia, P_max, k, cp, delta_t, sim_time)
+
+save_to_db(time, temperatura_piekarnik, wartosc_sterujaca)
 
 # ustawienia wykresu
 p = figure(title="Symulacja nagrzewania piekarnika o objętości 50 l\n"
@@ -199,7 +230,7 @@ def chart_update():
     source_3.data = dict(x=time, y=wartosc_sterujaca)
     source_4.data = dict(x=times_fuzzy, y=temperatures_fuzzy)
     source_5.data = dict(x=times_fuzzy, y=power_fuzzy)
-
+    save_to_db(time, temperatura_piekarnik, wartosc_sterujaca)
 
 button = Button(label="Wygeneruj grafy",
                 button_type="danger")
