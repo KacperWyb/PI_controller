@@ -29,17 +29,17 @@ cp : ciepło właściwe powietrza ≈1005 J/(kg·°C)
 
 Gęstość Powietrza = 1.2 [kg/m^3]
 Pojemność Piekarnika = 60 [l]
-Masa Powietrza w piekarniku 1200g / 10000 * 60 = 7.2 [gr]
+Masa Powietrza w piekarniku 1200g / 10000 * 60 = 0.0072 [kg]
 Ciepło właściwe powietrza: c = 1.005 [kJ / kg * °C]
 Pojemność cieplna : pc = m * c [kJ / °C]
- """
+"""
 
 # Slider do aktualizacji parametrów
 slider_T_zadane = Slider(
     title="Zadana temperatura [°C]", start=100, end=200, value=200, step=10)
 slider_Ti = Slider(
-    title="Wzmocnienie całkujące [s]", start=1, end=10, value=1, step=0.5)
-slider_kp = Slider(title="Wzmocnienie proporcjonalne", start=0.0001,
+    title="Czas zdwojenia", start=1, end=10, value=1, step=0.5)
+slider_kp = Slider(title="Wzmocnienie regulatora", start=0.0001,
                    end=0.002, value=0.001, step=0.0001, format='0[.]0000')
 sliders_list = [slider_T_zadane, slider_Ti, slider_kp]
 
@@ -53,10 +53,10 @@ def update_temperature_PI(T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowan
     skumulowany_uchyb += uchyb * delta_t
 
     # Wyznaczenie mocy grzałki na podstawie regulatora PI
-    Q = max(0, min(Kp_local * (uchyb + ((delta_t / Ti_local) * skumulowany_uchyb)), 1))
+    u = max(0, min(Kp_local * (uchyb + ((delta_t / Ti_local) * skumulowany_uchyb)), 1))
 
     # Ograniczenie mocy grzałki do zakresu [0, 2 kW]
-    P = 0.95 * Q * P_max
+    P = 0.95 * u * P_max
 
     # Obliczanie dostarczonej mocy do grzałki - sygnał sterujący [kW * s = kJ] [Kilo Dżul]
     Q_dostarczone = P * delta_t
