@@ -10,13 +10,6 @@ import csv
 import sqlite3
 
 """ OPIS
-Grzałka nagrzewa powietrze wewnątrz piekarnika (Konwekcja) oraz ścianki piekarnika (Promieniowanie).
-Dlatego mierzymy 2 razy utratę ciepła:
-- straty cieplne piekarnika (nieszczelność, nie perfekcyjna izolacja) 
-- schładzanie się gorącej grzałki (oddawanie ciepła cząstkowego do powietrza) (pomijamy w tym kroku promieniowanie)
-Ogrzewanie piekarnika obliczamy również na dwa sposoby:
-- Temperatura wytworzona przez grzałkę (powietrze przy grzałce)
-
 WZORY
 Q = m * cp * Δ𝑇
 Δ𝑇 = Q / (m*C)
@@ -51,17 +44,24 @@ CREATE TABLE IF NOT EXISTS simulation_data (
 conn.commit()
 
 # Funkcja do zapisywania danych do bazy SQLite
+
+
 def save_to_db(T, temperature, u):
-    cursor.execute("DELETE FROM simulation_data")  # Wyczyść tabelę przed zapisem
+    # Wyczyść tabelę przed zapisem
+    cursor.execute("DELETE FROM simulation_data")
     for t, h, ctrl in zip(T, temperature, u):
-        cursor.execute("INSERT INTO simulation_data (czas, temperatura, wartosc_sterujaca) VALUES (?, ?, ?)", (t, h, ctrl))
+        cursor.execute(
+            "INSERT INTO simulation_data (czas, temperatura, wartosc_sterujaca) VALUES (?, ?, ?)", (t, h, ctrl))
     conn.commit()
 
 # Funkcja do odczytu danych z bazy SQLite
+
+
 def load_from_db():
     cursor.execute("SELECT czas, temperatura FROM simulation_data")
     rows = cursor.fetchall()
     return [row[0] for row in rows], [row[1] for row in rows]
+
 
 # Slider do aktualizacji parametrów
 slider_T_zadane = Slider(
@@ -131,6 +131,8 @@ total_time = 0  # Czas trwania symulacji (s)
 
 # Symulacja zwypły PI
 while total_time < sim_time:
+    if total_time == 100:
+        T -= 30
     T, skumulowany_uchyb, T_utracone, P = update_temperature_PI(
         T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowany_uchyb, Kp, Ti)
     total_time += delta_t
@@ -147,69 +149,58 @@ times_fuzzy, temperatures_fuzzy, power_fuzzy, Q_lost = simulate_oven(
 save_to_db(time, temperatura_piekarnik, wartosc_sterujaca)
 
 # ustawienia wykresu
-p = figure(title="Symulacja nagrzewania piekarnika o objętości 50 l\n"
-                 "Moc grzałki 2 Kw \n"
-                 "Współczynnik strat cieplnych piekarnika 0.006 kW/°C\n"
-                 "Temperatura otoczenia 20 °C\n"
-                 f"Docelowa temperatura {T_otoczenia} °C",
-           x_axis_label="czas [s]", y_axis_label="Temperatura wewnątrz piekarnika [°C]")
+p = figure(title="Temperatura wewnątrz piekarnika - PI",
+           x_axis_label="czas [s]", y_axis_label="Temperatura [°C]")
 p.title.text_font_size = "20px"
 source = ColumnDataSource(data=dict(x=time, y=temperatura_piekarnik))
 p.line(source=source)
 
 
-p_1 = figure(title="Zależność straty energii od czasu",
-             x_axis_label="czas [s]", y_axis_label="Utracona energia [kJ]")
+p_1 = figure(title="Energia w czasie - PI",
+             x_axis_label="czas [s]", y_axis_label="Energia [kJ]")
 p_1.title.text_font_size = "20px"
 source_2 = ColumnDataSource(data=dict(x=time, y=temperatura_strata))
-p_1.line(source=source_2)
-
-p_2 = figure(title="Zależność sygnału sterującego od czasu",
-             x_axis_label="czas [s]", y_axis_label="Moc [kW]")
-p_2.title.text_font_size = "20px"
 source_3 = ColumnDataSource(data=dict(x=time, y=wartosc_sterujaca))
-p_2.line(source=source_3)
+p_1.line(source=source_3, legend_label="Energia Grzałka", color="red")
+p_1.line(source=source_2, legend_label="Energia Utracona", color="blue")
 
-p_4 = figure(title="Nagrzewanie piekarnika z wykorzystaniem Fuzzy PI",
-             x_axis_label="czas [s]", y_axis_label="Temperatura wewnątrz piekarnika [°C]")
+
+p_4 = figure(title="Temperatura wewnątrz piekarnika - Fuzzy PI",
+             x_axis_label="czas [s]", y_axis_label="Temperatura [°C]")
 p_4.title.text_font_size = "20px"
 source_4 = ColumnDataSource(data=dict(x=times_fuzzy, y=temperatures_fuzzy))
 p_4.line(source=source_4)
 
-p_5 = figure(title="Zależność sygnału sterującego od czasu",
-             x_axis_label="czas [s]", y_axis_label="Moc [kW]")
+p_5 = figure(title="Energia w czasie - Fuzzy PI",
+             x_axis_label="czas [s]", y_axis_label="Energia [kJ]")
 p_5.title.text_font_size = "20px"
 source_5 = ColumnDataSource(data=dict(x=times_fuzzy, y=power_fuzzy))
 source_6 = ColumnDataSource(data=dict(x=times_fuzzy, y=Q_lost))
-p_5.line(source=source_5, legend_label="Moc Grzałki", color="red")
-p_5.line(source=source_6, legend_label="Moc Utracona", color="blue")
+p_5.line(source=source_5, legend_label="Energia Grzałka", color="red")
+p_5.line(source=source_6, legend_label="Energia Utracona", color="blue")
 
 
 def chart_update():
     global time, temperatura_piekarnik, temperatura_grzalka, temperatura_strata, wartosc_sterujaca, T_grzalka
 
     # Parametry regulatora PI
-    Kp = slider_kp.value  # Wzmocnienie proporcjonalne
-    Ti = slider_Ti.value  # Wzmocnienie całkujące
+    Kp = slider_kp.value  # Wzmocnienie regulatora
+    Ti = slider_Ti.value  # Czas zdwojenia
     skumulowany_uchyb = 0  # Skumulowany uchyb
 
-    time = []
-    temperatura_piekarnik = []
-    temperatura_grzalka = []
-    temperatura_strata = []
-    wartosc_sterujaca = []
-    times_fuzzy = []
-    temperatures_fuzzy = []
-    power_fuzzy = []
+    time, temperatura_piekarnik, temperatura_grzalka, temperatura_strata, wartosc_sterujaca, times_fuzzy, temperatures_fuzzy, power_fuzzy, Q_lost = [
+    ], [], [], [], [], [], [], [], []
 
     # Parametry symulacji
     T = T_otoczenia  # Początkowa temperatura piekarnika (°C)
     T_docelowa = slider_T_zadane.value  # Docelowa temperatura (°C)
     delta_t = 1  # Krok czasowy (s)
-    sim_time = 400  # Czas symulacji (s)v
+    sim_time = 200  # Czas symulacji (s)v
 
     # Symulacja zwykły PI
     for i in range(0, sim_time):
+        if i == 100:
+            T -= 30
         T, skumulowany_uchyb, T_utracone, P = update_temperature_PI(
             T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowany_uchyb, Kp, Ti)
         time.append(i)
@@ -221,7 +212,7 @@ def chart_update():
 
     # Symulacja PI Rozmyty
     FS = create_fuzzy_pi()
-    times_fuzzy, temperatures_fuzzy, power_fuzzy = simulate_oven(
+    times_fuzzy, temperatures_fuzzy, power_fuzzy, Q_lost = simulate_oven(
         FS, T_docelowa, T_otoczenia, P_max, k, cp, delta_t, sim_time)
 
     # Aktualizacja danych na wykresach
@@ -230,7 +221,9 @@ def chart_update():
     source_3.data = dict(x=time, y=wartosc_sterujaca)
     source_4.data = dict(x=times_fuzzy, y=temperatures_fuzzy)
     source_5.data = dict(x=times_fuzzy, y=power_fuzzy)
+    source_6.data = dict(x=times_fuzzy, y=Q_lost)
     save_to_db(time, temperatura_piekarnik, wartosc_sterujaca)
+
 
 button = Button(label="Wygeneruj grafy",
                 button_type="danger")
@@ -239,7 +232,7 @@ button.on_click(chart_update)
 
 
 page = layout([row(button, slider_T_zadane, slider_Ti, slider_kp),
-              row(column(p), column(p_1), column(p_2)),
+              row(column(p), column(p_1)),
               row(column(p_4), column(p_5))])
 
 

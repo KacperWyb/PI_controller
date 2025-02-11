@@ -8,7 +8,7 @@ def create_fuzzy_pi():
 
     # Definicja zakresów zmiennych
     error_range = [-30, 190]
-    delta_error_range = [-40, 30]
+    delta_error_range = [-40, 35]
     delta_u_range = [-1, 1]
 
     # Definicja funkcji przynależności dla błędu
@@ -26,7 +26,7 @@ def create_fuzzy_pi():
         a=-20, b=-10, c=0), term="neg_l")
     DE_Zero = FuzzySet(function=Triangular_MF(a=-4, b=0, c=4), term="zero")
     DE_Pos_l = FuzzySet(function=Triangular_MF(a=0, b=10, c=20), term="pos_l")
-    DE_Pos = FuzzySet(function=Triangular_MF(a=10, b=20, c=30), term="pos")
+    DE_Pos = FuzzySet(function=Triangular_MF(a=10, b=20, c=35), term="pos")
     FS.add_linguistic_variable("delta_error", LinguisticVariable(
         [DE_Neg, DE_Neg_l, DE_Zero, DE_Pos_l, DE_Pos], universe_of_discourse=delta_error_range))
 
@@ -86,6 +86,8 @@ def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, cp, delta_t, sim_time):
     prev_error = 0
     u = 0
     for t in range(0, sim_time, delta_t):
+        if t == 100:
+            T -= 30
         error = T_setpoint - T
         delta_error = error - prev_error
         prev_error = error
