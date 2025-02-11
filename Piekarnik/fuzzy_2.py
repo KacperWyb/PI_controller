@@ -7,15 +7,15 @@ def create_fuzzy_pi():
     FS = FuzzySystem()
 
     # Definicja zakresów zmiennych
-    error_range = [-100, 190]
+    error_range = [-30, 190]
     delta_error_range = [-40, 30]
     delta_u_range = [-1, 1]
 
     # Definicja funkcji przynależności dla błędu
-    E_Neg = FuzzySet(function=Triangular_MF(a=-100, b=-50, c=-20), term="neg")
-    E_Neg_l = FuzzySet(function=Triangular_MF(a=-30, b=-10, c=0), term="neg_l")
+    E_Neg = FuzzySet(function=Triangular_MF(a=-30, b=-20, c=-10), term="neg")
+    E_Neg_l = FuzzySet(function=Triangular_MF(a=-20, b=-10, c=0), term="neg_l")
     E_Zero = FuzzySet(function=Triangular_MF(a=-1, b=0, c=1), term="zero")
-    E_Pos_l = FuzzySet(function=Triangular_MF(a=0, b=10, c=30), term="pos_l")
+    E_Pos_l = FuzzySet(function=Triangular_MF(a=0, b=50, c=70), term="pos_l")
     E_Pos = FuzzySet(function=Triangular_MF(a=20, b=125, c=190), term="pos")
     FS.add_linguistic_variable("error", LinguisticVariable(
         [E_Neg, E_Neg_l, E_Zero, E_Pos_l, E_Pos], universe_of_discourse=error_range))
@@ -32,22 +32,22 @@ def create_fuzzy_pi():
 
     # Definicja funkcji przynależności dla zmiany sterowania
     DU_Decrease = FuzzySet(function=Triangular_MF(
-        a=-1, b=-0.7, c=-0.4), term="decrease")
+        a=-1, b=-0.4, c=-0.10), term="decrease")
     DU_Decrease_l = FuzzySet(function=Triangular_MF(
-        a=-0.6, b=-0.2, c=0), term="decrease_l")
+        a=-0.2, b=-0.1, c=0), term="decrease_l")
     DU_NoChange = FuzzySet(function=Triangular_MF(
         a=-0.05, b=0, c=0.05), term="no_change")
     DU_Increase_l = FuzzySet(function=Triangular_MF(
-        a=0, b=0.2, c=0.6), term="increase_l")
+        a=0, b=0.1, c=0.2), term="increase_l")
     DU_Increase = FuzzySet(function=Triangular_MF(
-        a=0.4, b=0.7, c=1), term="increase")
+        a=0.10, b=0.4, c=1), term="increase")
     FS.add_linguistic_variable("delta_u", LinguisticVariable(
         [DU_Decrease, DU_Decrease_l, DU_NoChange, DU_Increase_l, DU_Increase], universe_of_discourse=delta_u_range))
 
     # Reguły sterowania
     rules = [
         "IF (error IS neg) AND (delta_error IS neg) THEN (delta_u IS decrease)",
-        "IF (error IS neg) AND (delta_error IS neg_l) THEN (delta_u IS decrease)",
+        "IF (error IS neg) AND (delta_error IS neg_l) THEN (delta_u IS decrease_l)",
         "IF (error IS neg) AND (delta_error IS zero) THEN (delta_u IS decrease_l)",
         "IF (error IS neg) AND (delta_error IS pos_l) THEN (delta_u IS decrease_l)",
         "IF (error IS neg) AND (delta_error IS pos) THEN (delta_u IS no_change)",
@@ -56,7 +56,7 @@ def create_fuzzy_pi():
         "IF (error IS neg_l) AND (delta_error IS neg_l) THEN (delta_u IS decrease_l)",
         "IF (error IS neg_l) AND (delta_error IS zero) THEN (delta_u IS no_change)",
         "IF (error IS neg_l) AND (delta_error IS pos_l) THEN (delta_u IS no_change)",
-        "IF (error IS neg_l) AND (delta_error IS pos) THEN (delta_u IS increase_l)",
+        "IF (error IS neg_l) AND (delta_error IS pos) THEN (delta_u IS decrease_l)",
 
         "IF (error IS zero) AND (delta_error IS neg) THEN (delta_u IS decrease_l)",
         "IF (error IS zero) AND (delta_error IS neg_l) THEN (delta_u IS no_change)",
@@ -64,7 +64,7 @@ def create_fuzzy_pi():
         "IF (error IS zero) AND (delta_error IS pos_l) THEN (delta_u IS no_change)",
         "IF (error IS zero) AND (delta_error IS pos) THEN (delta_u IS increase_l)",
 
-        "IF (error IS pos_l) AND (delta_error IS neg) THEN (delta_u IS decrease_l)",
+        "IF (error IS pos_l) AND (delta_error IS neg) THEN (delta_u IS increase_l)",
         "IF (error IS pos_l) AND (delta_error IS neg_l) THEN (delta_u IS no_change)",
         "IF (error IS pos_l) AND (delta_error IS zero) THEN (delta_u IS no_change)",
         "IF (error IS pos_l) AND (delta_error IS pos_l) THEN (delta_u IS increase_l)",
@@ -73,7 +73,7 @@ def create_fuzzy_pi():
         "IF (error IS pos) AND (delta_error IS neg) THEN (delta_u IS no_change)",
         "IF (error IS pos) AND (delta_error IS neg_l) THEN (delta_u IS increase_l)",
         "IF (error IS pos) AND (delta_error IS zero) THEN (delta_u IS increase_l)",
-        "IF (error IS pos) AND (delta_error IS pos_l) THEN (delta_u IS increase)",
+        "IF (error IS pos) AND (delta_error IS pos_l) THEN (delta_u IS increase_l)",
         "IF (error IS pos) AND (delta_error IS pos) THEN (delta_u IS increase)"
     ]
     FS.add_rules(rules)
@@ -81,7 +81,7 @@ def create_fuzzy_pi():
 
 
 def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, cp, delta_t, sim_time):
-    times, temperatures, power = [], [], []
+    times, temperatures, power, Q_lost = [], [], [], []
     T = T_ambient
     prev_error = 0
     u = 0
@@ -105,55 +105,10 @@ def simulate_oven(FS, T_setpoint, T_ambient, P_max, k, cp, delta_t, sim_time):
 
         delta_Temp = (Q_dostarczone - Q_utracone) / cp
         T += delta_Temp
-
+        print(f"Error = {error} : Delta_Error = {delta_error} : ster = {u}")
         times.append(t)
         temperatures.append(T)
         power.append(P)
+        Q_lost.append(Q_utracone)
 
-    return times, temperatures, power
-
-
-def plot_results(times, temperatures, power):
-    plt.figure(figsize=(10, 6))
-    plt.plot(times, temperatures, label="Temperatura piekarnika", linewidth=2)
-    plt.axhline(y=200, color='r', linestyle='--',
-                label="Temperatura docelowa (200°C)")
-    plt.xlabel("Czas (s)")
-    plt.ylabel("Temperatura (°C)")
-    plt.title("Symulacja piekarnika z rozmytym regulatorem PI")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(times, power, label="Moc grzałki", linewidth=2, color='orange')
-    plt.xlabel("Czas (s)")
-    plt.ylabel("Moc (kW)")
-    plt.title("Sterowanie mocą grzałki")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-
-# Parametry symulacji
-T_ambient = 20  # Temperatura otoczenia (°C)
-T_setpoint = 200  # Temperatura docelowa (°C)
-P_max = 2  # Maksymalna moc grzałki (kW)
-k = 0.006  # Współczynnik strat cieplnych (kW/°C)
-rho = 1.2  # Gęstość powietrza (kg/m³)
-V = 50  # Objętość piekarnika (litry)
-m = V / 1000 * rho  # Masa powietrza (kg)
-c = 1.005  # ciepło właściwe (kJ/(kg·°C))
-cp = c * m  # pojemność cieplna [kJ/°C]
-delta_t = 1  # Krok czasowy (s)
-sim_time = 100  # Czas symulacji (s)
-
-# Inicjalizacja regulatora Fuzzy PI
-FS = create_fuzzy_pi()
-
-# Uruchomienie symulacji
-times, temperatures, power = simulate_oven(
-    FS, T_setpoint, T_ambient, P_max, k, cp, delta_t, sim_time)
-
-# Wizualizacja wyników
-plot_results(times, temperatures, power)
+    return times, temperatures, power, Q_lost

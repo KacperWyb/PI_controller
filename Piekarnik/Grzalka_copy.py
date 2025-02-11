@@ -40,7 +40,7 @@ slider_T_zadane = Slider(
 slider_Ti = Slider(
     title="Czas zdwojenia", start=1, end=10, value=1, step=0.5)
 slider_kp = Slider(title="Wzmocnienie regulatora", start=0.0001,
-                   end=0.002, value=0.001, step=0.0001, format='0[.]0000')
+                   end=0.005, value=0.001, step=0.0001, format='0[.]0000')
 sliders_list = [slider_T_zadane, slider_Ti, slider_kp]
 
 
@@ -112,7 +112,7 @@ while total_time < sim_time:
 
 # wywołanie symulacji PI rozmyty
 FS = create_fuzzy_pi()
-times_fuzzy, temperatures_fuzzy, power_fuzzy = simulate_oven(
+times_fuzzy, temperatures_fuzzy, power_fuzzy, Q_lost = simulate_oven(
     FS, T_docelowa, T_otoczenia, P_max, k, cp, delta_t, sim_time)
 
 # ustawienia wykresu
@@ -149,7 +149,9 @@ p_5 = figure(title="Zależność sygnału sterującego od czasu",
              x_axis_label="czas [s]", y_axis_label="Moc [kW]")
 p_5.title.text_font_size = "20px"
 source_5 = ColumnDataSource(data=dict(x=times_fuzzy, y=power_fuzzy))
-p_5.line(source=source_5)
+source_6 = ColumnDataSource(data=dict(x=times_fuzzy, y=Q_lost))
+p_5.line(source=source_5, legend_label="Moc Grzałki", color="red")
+p_5.line(source=source_6, legend_label="Moc Utracona", color="blue")
 
 
 def chart_update():
