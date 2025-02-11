@@ -56,7 +56,7 @@ def update_temperature_PI(T, T_docelowa, k, T_otoczenia, cp, delta_t, skumulowan
     Q = max(0, min(Kp_local * (uchyb + ((delta_t / Ti_local) * skumulowany_uchyb)), 1))
 
     # Ograniczenie mocy grzałki do zakresu [0, 2 kW]
-    P = Q * P_max
+    P = 0.95 * Q * P_max
 
     # Obliczanie dostarczonej mocy do grzałki - sygnał sterujący [kW * s = kJ] [Kilo Dżul]
     Q_dostarczone = P * delta_t
