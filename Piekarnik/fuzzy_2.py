@@ -24,7 +24,7 @@ def create_fuzzy_pi():
     DE_Neg = FuzzySet(function=Triangular_MF(a=-40, b=-20, c=-10), term="neg")
     DE_Neg_l = FuzzySet(function=Triangular_MF(
         a=-20, b=-10, c=0), term="neg_l")
-    DE_Zero = FuzzySet(function=Triangular_MF(a=-4, b=0, c=4), term="zero")
+    DE_Zero = FuzzySet(function=Triangular_MF(a=-3, b=0, c=3), term="zero")
     DE_Pos_l = FuzzySet(function=Triangular_MF(a=0, b=10, c=20), term="pos_l")
     DE_Pos = FuzzySet(function=Triangular_MF(a=10, b=20, c=35), term="pos")
     FS.add_linguistic_variable("delta_error", LinguisticVariable(

@@ -2,7 +2,7 @@ import numpy as np
 from math import sqrt
 from bokeh.io import curdoc, show
 from bokeh.layouts import layout, column, row, gridplot
-from bokeh.models import CustomJS, ColumnDataSource, Slider, Button, CustomJS
+from bokeh.models import CustomJS, ColumnDataSource, Slider, Button, CustomJS, Span
 from bokeh.plotting import figure
 from simpful import *
 from fuzzy_2 import create_fuzzy_pi, simulate_oven
@@ -161,15 +161,20 @@ p_1 = figure(title="Energia w czasie - PI",
 p_1.title.text_font_size = "20px"
 source_2 = ColumnDataSource(data=dict(x=time, y=temperatura_strata))
 source_3 = ColumnDataSource(data=dict(x=time, y=wartosc_sterujaca))
+
 p_1.line(source=source_3, legend_label="Energia Grzałka", color="red")
 p_1.line(source=source_2, legend_label="Energia Utracona", color="blue")
-
+# p_1.line([min(time), max(time)], [T_docelowa, T_docelowa], line_dash="dashed", color="green")
+horizontal_line = Span(location=T_docelowa, dimension='width',
+                       line_color='green', line_dash='dashed')
+p.add_layout(horizontal_line)
 
 p_4 = figure(title="Temperatura wewnątrz piekarnika - Fuzzy PI",
              x_axis_label="czas [s]", y_axis_label="Temperatura [°C]")
 p_4.title.text_font_size = "20px"
 source_4 = ColumnDataSource(data=dict(x=times_fuzzy, y=temperatures_fuzzy))
 p_4.line(source=source_4)
+p_4.add_layout(horizontal_line)
 
 p_5 = figure(title="Energia w czasie - Fuzzy PI",
              x_axis_label="czas [s]", y_axis_label="Energia [kJ]")
@@ -224,6 +229,10 @@ def chart_update():
     source_6.data = dict(x=times_fuzzy, y=Q_lost)
     save_to_db(time, temperatura_piekarnik, wartosc_sterujaca)
 
+
+slider_T_zadane.js_on_change("value", CustomJS(args=dict(line=horizontal_line), code="""
+    line.location = cb_obj.value;
+"""))
 
 button = Button(label="Wygeneruj grafy",
                 button_type="danger")
